@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hong Kong Bus ETA Viewer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      padding: 20px;
+    }
+    h1 {
+      color: #333;
+    }
+    .stop-section {
+      background: #fff;
+      border-left: 5px solid #007ACC;
+      margin: 20px 0;
+      padding: 15px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    h3 {
+      margin-top: 0;
+    }
+    ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div id="result">Loading bus data...</div>
+
+  <script>
+    const resultDiv = document.getElementById('result');
+    const query = new URLSearchParams(window.location.search).get('query');
+
+    if (!query) {
+      resultDiv.textContent = "Missing query. Use format: StopName|StopID|RouteName|RouteID;...";
+    } else {
+      resultDiv.innerHTML = '';
+      const entries = query.split(';');
+
+      entries.forEach(entry => {
+        const parts = entry.split('|');
+        if (parts.length < 4) return;
+
+        const [stopName, stopId, routeName, routeId] = parts;
+        const apiUrl = `https://data.etabus.gov.hk/v1/transport/kmb/eta/${stopId}/${routeId}/1`;
+
+        fetch(apiUrl)
+          .then(res => res.json())
+          .then(data => {
+            const section = document.createElement('div');
+            section.className = 'stop-section';
+            section.innerHTML = `<h3>${routeName} → ${stopName}</h3>`;
+
+            if (data.data && data.data.length > 0) {
+              const ul = document.createElement('ul');
+              data.data.forEach(entry => {
+                const li = document.createElement('li');
+                if (entry.eta) {
+                  const etaTime = new Date(entry.eta);
+                  const now = new Date();
+                  const diffMin = Math.max(0, Math.round((etaTime - now) / 60000));
+                  const formatted = etaTime.toLocaleTimeString();
+                  li.textContent = `ETA: ${formatted} (${diffMin} min${diffMin !== 1 ? 's' : ''} left)`;
+                } else {
+                  li.textContent = 'ETA: Not available';
+                }
+                ul.appendChild(li);
+              });
+              section.appendChild(ul);
+            } else {
+              section.innerHTML += `<p>No ETA data available.</p>`;
+            }
+
+            resultDiv.appendChild(section);
+          })
+          .catch(err => {
+            const section = document.createElement('div');
+            section.className = 'stop-section';
+            section.innerHTML = `<h3>${routeName} → ${stopName}</h3><p>Error fetching ETA: ${err.message}</p>`;
+            resultDiv.appendChild(section);
+          });
+      });
+    }
+  </script>
+</body>
+</html>
